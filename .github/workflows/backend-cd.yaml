@@ -11,11 +11,10 @@ on:
     branches:
         - main
       
-
 # Jobs defined in the workflow
 jobs:
 
-  backend-cd-test:
+  backend-cd-santy-test:
     runs-on: ubuntu-latest
     steps:
       #checkout code
@@ -27,7 +26,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
-
 
       #printing the current Python version
       - name: Display Python version
@@ -45,70 +43,70 @@ jobs:
       - name: Run tests    
         run: cd starter/backend && pipenv run test 
       
-  backend-cd-lint:
+  backend-cd-santy-lint:
     runs-on: ubuntu-latest
     steps:
-      #checkout code
+      # Checkout code
       - name: Checkout code
         uses: actions/checkout@v3
       
-      #setup python and cache
+      # Setup python 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
-      #printing the current Python version
+      # Print current Python version
       - name: Display Python version
         run: python -c "import sys; print(sys.version)"
 
-      #Install pipenv
+      # Install pipenv
       - name: Install pipenv
         run: cd starter/backend && pip install pipenv
       
-      #install dependencies
+      # Install dependencies
       - name: install dependencies
         run: cd starter/backend && pipenv install --dev
 
-      #Run linter
+      # Run linter
       - name: Run linter    
         run: cd starter/backend && pipenv run flake8
   
-  backend-cd-build:
-    needs: [backend-cd-test, backend-cd-lint]
+  backend-cd-santy-build:
+    needs: [backend-cd-santy-test, backend-cd-santy-lint]
     if: success()
     runs-on: ubuntu-latest
     steps:
-      #checkout code
+      # Checkout code
       - name: Checkout code
         uses: actions/checkout@v3
     
-      #configure AWS credentials
+      # Configure AWS credentials received from Secret
       - name: AWS configure
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+          aws-access-key-id: ${{ secrets.AWS_AccessKey }}
+          aws-secret-access-key: ${{ secrets.AWS_SecretAccessKey }}
+          aws-region: ${{ secrets.AWS_DefaultRegion }}
 
-      #Login to ECR
+      # Login to ECR
       - name: Login to ECR
         uses: aws-actions/amazon-ecr-login@v2
 
-      #Build and push to ECR
-      - name: Build, tag, and push docker image to Amazon ECR Public
+      # Build and push to ECR
+      - name: Build, Tag and push docker image to Amazon ECR Public
         run: |
           docker build -t backend ./starter/backend/ 
-          docker tag backend:${{ vars.IMAGE_TAG }} ${{ vars.BACKEND_ECR }}:${GITHUB_SHA::7}
-          docker push ${{ vars.BACKEND_ECR }}:${GITHUB_SHA::7}
+          docker tag backend:${{ vars.Santy_Tag }} ${{ vars.Santy_BackEndECR }}:${GITHUB_SHA::7}
+          docker push ${{ vars.Santy_BackEndECR }}:${GITHUB_SHA::7}
 
-      #Deploy to EKS
+      # Deploy to EKS
       - name: Deploying to EKS
         env:
           REPOSITORY: backend #name of the pod
 
         run: |
-          aws eks update-kubeconfig --name ${{ vars.CLUSTER_NAME }}
+          aws eks update-kubeconfig --name ${{ vars.Santy_Cluster }}
           kubectl apply -f ./starter/backend/k8s/deployment.yaml
-          kubectl set image deployment/$REPOSITORY $REPOSITORY=${{ vars.BACKEND_ECR }}:${GITHUB_SHA::7}
+          kubectl set image deployment/$REPOSITORY $REPOSITORY=${{ vars.Santy_BackEndECR }}:${GITHUB_SHA::7}
           kubectl apply -f ./starter/backend/k8s/service.yaml
