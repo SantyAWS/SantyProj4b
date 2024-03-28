@@ -1,29 +1,29 @@
-# Workflow name
-name: Frontend Continuous Deployment
+#  Workflow name
+name: Frontend Continuous Integration
 
-# Triggers for the workflow
+#  Triggers for the workflow
 on:
-  # Manual trigger using the workflow_dispatch event
+  #  Manual trigger using the workflow_dispatch event
   workflow_dispatch:
   
   
-  # Automatic trigger on pull request events targeting the main branch
-  push:
+  #  Automatic trigger on pull request events targeting the main branch
+  pull_request:
     branches:
-        - main
+      - main
       
 
-# Jobs defined in the workflow
+#  Jobs defined in the workflow
 jobs:
 
-  frontend-cd-test:
+  frontend-ci-santy-test:
     runs-on: ubuntu-latest
     steps:
-      #checkout code
+      # checkout code
       - name: Checkout code
         uses: actions/checkout@v3
 
-      #setup node.js and cache
+      # setup node.js and cache
       - name: Set up Node.js 
         uses: actions/setup-node@v3
         with:
@@ -31,22 +31,22 @@ jobs:
           cache-dependency-path: './starter/frontend/package-lock.json'
           cache: 'npm'
 
-      #Install dependencies
+      # Install dependencies
       - name: install dependencies
         run: cd starter/frontend && npm ci
 
-      #Run tests
+      # Run tests
       - name: Run tests
         run: cd starter/frontend &&  npm test
       
-  frontend-cd-lint:
+  frontend-ci-santy-lint:
     runs-on: ubuntu-latest
     steps:
-      #checkout code
+      # checkout code
       - name: Checkout code
         uses: actions/checkout@v3
 
-      #setup node.js  and cache
+      # setup node.js  and cache
       - name: Set up Node.js 
         uses: actions/setup-node@v3
         with:
@@ -54,53 +54,37 @@ jobs:
           cache-dependency-path: './starter/frontend/package-lock.json'
           cache: 'npm'
 
-      #Install dependencies
+      # Install dependencies
       - name: install dependencies
         run: cd starter/frontend && npm ci
 
-      #Run tests
+      # Run tests
       - name: Run tests
         run: cd starter/frontend &&  npm run lint
   
-  frontend-cd-build:
-    needs: [frontend-cd-test, frontend-cd-lint]
+  frontend-ci-santy-build:
+    needs: [frontend-ci-santy-test, frontend-ci-santy-lint]
     if: success()
     runs-on: ubuntu-latest
     steps:
-      #checkout code
+      # checkout code
       - name: Checkout code
         uses: actions/checkout@v3
-    
-      #configure AWS credentials
-      - name: AWS configure
-        uses: aws-actions/configure-aws-credentials@v4
+
+      # setup node.js  and cache
+      - name: Set up Node.js 
+        uses: actions/setup-node@v3
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+          node-version: latest
+          cache-dependency-path: './starter/frontend/package-lock.json'
+          cache: 'npm'
 
-      #Login to ECR
-      - name: Login to ECR
-        uses: aws-actions/amazon-ecr-login@v2
+      # Install dependencies
+      - name: install dependencies
+        run: cd starter/frontend && npm ci
 
-      #Build and push to ECR
-      - name: Build, tag, and push docker image to Amazon ECR Public
-        env:    
-          REACT_APP_MOVIE_API_URL: http://localhost:5000
+      # create build
+      - name: create build
+        run: cd starter/frontend &&  npm run build
 
-        run: |
-          docker build -t frontend ./starter/frontend/ --build-arg=REACT_APP_MOVIE_API_URL=http://localhost:5000
-          docker tag frontend:${{ vars.IMAGE_TAG }} ${{ vars.FRONTEND_ECR }}:${GITHUB_SHA::7}
-          docker push ${{ vars.FRONTEND_ECR }}:${GITHUB_SHA::7}
-
-      #Deploy to EKS
-      - name: Deploying to EKS
-        env:
-          REPOSITORY: frontend #name of the pod
-
-        run: |
-          aws eks update-kubeconfig --name ${{ vars.CLUSTER_NAME }}
-          kubectl apply -f ./starter/frontend/k8s/deployment.yaml
-          kubectl set image deployment/$REPOSITORY $REPOSITORY=${{ vars.FRONTEND_ECR }}:${GITHUB_SHA::7}
-          kubectl apply -f ./starter/frontend/k8s/service.yaml
 
