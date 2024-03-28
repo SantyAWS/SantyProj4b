@@ -1,89 +1,90 @@
-# Workflow name
+#  Workflow name
 name: Backend Continuous Integration
 
-# Triggers for the workflow
+#  Triggers for the workflow
 on:
-  # Manual trigger using the workflow_dispatch event
+  #  Manual trigger using the workflow_dispatch event
   workflow_dispatch:
   
-  
-  # Automatic trigger on pull request events targeting the main branch
+  #  Automatic trigger on pull request events targeting the main branch
   pull_request:
     branches:
       - main
       
 
-# Jobs defined in the workflow
+#  Jobs defined in the workflow
 jobs:
 
-  backend-ci-test:
+  backend-ci-santy-test:
     runs-on: ubuntu-latest
     steps:
-      #checkout code
+      # checkout code
       - name: Checkout code
         uses: actions/checkout@v3
       
-      #setup python and cache
+      # setup python and cache
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
 
-      #printing the current Python version
+      # printing the current Python version
       - name: Display Python version
         run: python -c "import sys; print(sys.version)"
 
-      #Install pipenv
+      # Install pipenv
       - name: Install pipenv
         run: cd starter/backend && pip install pipenv
       
-      #install dependencies
+      # install dependencies
       - name: install dependencies
         run: cd starter/backend && pipenv install 
 
-      #Run tests
+      # Run tests
       - name: Run tests    
         run: cd starter/backend && pipenv run test 
       
-  backend-ci-lint:
+  backend-ci-santy-lint:
     runs-on: ubuntu-latest
     steps:
-      #checkout code
+      # checkout code
       - name: Checkout code
         uses: actions/checkout@v3
       
-      #setup python and cache
+      # Setup python 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
-      #printing the current Python version
+      # Printing the current Python version
       - name: Display Python version
         run: python -c "import sys; print(sys.version)"
 
-      #Install pipenv
+      # Install pipenv
       - name: Install pipenv
         run: cd starter/backend && pip install pipenv
       
-      #install dependencies
+      # Install dependencies
       - name: install dependencies
         run: cd starter/backend && pipenv install --dev
 
-      #Run linter
+      # Run linter
       - name: Run linter    
         run: cd starter/backend && pipenv run flake8
   
-  backend-ci-build:
-    needs: [backend-ci-test, backend-ci-lint]
+  backend-ci-santy-build:
+    needs: [backend-ci-santy-test, backend-ci-santy-lint]
     if: success()
     runs-on: ubuntu-latest
     steps:
-      #checkout code
+      # Checkout code
       - name: Checkout code
         uses: actions/checkout@v3
       
-      #create docker build
+      # Create docker image and build
       - name: creating docker image    
         run: cd starter/backend && docker build -t movie-app-backend .
+
+
