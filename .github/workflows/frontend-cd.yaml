@@ -1,5 +1,5 @@
 #  Workflow name
-name: Frontend Continuous Integration
+name: Frontend Continuous Deployment
 
 #  Triggers for the workflow
 on:
@@ -8,15 +8,15 @@ on:
   
   
   #  Automatic trigger on pull request events targeting the main branch
-  pull_request:
+  push:
     branches:
-      - main
+        - main
       
 
 #  Jobs defined in the workflow
 jobs:
 
-  frontend-ci-santy-test:
+  frontend-cd-santy-test:
     runs-on: ubuntu-latest
     steps:
       # checkout code
@@ -39,7 +39,7 @@ jobs:
       - name: Run tests
         run: cd starter/frontend &&  npm test
       
-  frontend-ci-santy-lint:
+  frontend-cd-santy-lint:
     runs-on: ubuntu-latest
     steps:
       # checkout code
@@ -62,29 +62,46 @@ jobs:
       - name: Run tests
         run: cd starter/frontend &&  npm run lint
   
-  frontend-ci-santy-build:
-    needs: [frontend-ci-santy-test, frontend-ci-santy-lint]
+  frontend-cd-santy-build:
+    needs: [frontend-cd-santy-test, frontend-cd-santy-lint]
     if: success()
     runs-on: ubuntu-latest
     steps:
       # checkout code
       - name: Checkout code
         uses: actions/checkout@v3
-
-      # setup node.js  and cache
-      - name: Set up Node.js 
-        uses: actions/setup-node@v3
+    
+      # configure AWS credentials
+      - name: AWS configure
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          node-version: latest
-          cache-dependency-path: './starter/frontend/package-lock.json'
-          cache: 'npm'
+          aws-access-key-id: ${{ secrets.AWS_AccessKey }}
+          aws-secret-access-key: ${{ secrets.AWS_SecretAccessKey }}
+          aws-region: ${{ secrets.AWS_DefaultRegion }}
 
-      # Install dependencies
-      - name: install dependencies
-        run: cd starter/frontend && npm ci
+      # Login to ECR
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2
 
-      # create build
-      - name: create build
-        run: cd starter/frontend &&  npm run build
+      # Build and push to ECR
+      - name: Build, tag, and push docker image to Amazon ECR Public
+        env:    
+          REACT_APP_MOVIE_API_URL: http://localhost:5000
 
+        run: |
+          docker build -t frontend ./starter/frontend/ --build-arg=REACT_APP_MOVIE_API_URL=http://localhost:5000
+          docker tag frontend:${{ vars.Santy_Tag }} ${{ vars.Santy_FrontEndECR }}:${GITHUB_SHA::7}
+          docker push ${{ vars.Santy_FrontEndECR }}:${GITHUB_SHA::7}
 
+      # Deploy to EKS
+      - name: Deploying to EKS
+        env:
+          REPOSITORY: frontend # name of the pod
+
+        run: |
+          aws eks update-kubeconfig --name ${{ vars.Santy_Cluster }}
+          kubectl apply -f ./starter/frontend/k8s/deployment.yaml
+          kubectl set image deployment/$REPOSITORY $REPOSITORY=${{ vars.Santy_FrontEndECR }}:${GITHUB_SHA::7}
+          kubectl apply -f ./starter/frontend/k8s/service.yaml
+
+ 
